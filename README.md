@@ -1,10 +1,12 @@
 # Level Buddy for Blender 3.0
 
-**Level Buddy** is a Blender add-on originally written by Matt Lucas.
+I added the ability to change materials to all selected sectors.  
+And a mesh update for all copies of the generated map object.
 
-[old version available on itch.io](https://matt-lucas.itch.io/level-buddy).
+**Level Buddy** is a Blender 2.7 add-on originally written by Matt Lucas. [old version available on itch.io](https://matt-lucas.itch.io/level-buddy).  
+And was [translated to blender version 2.9+](https://github.com/hickVieira/LevelBuddyBlender3) by HickVieira.
 
-![gify](gif.gif)
+![preview](preview.gif)
 
 ## Features
 - Doom-inspired sector-based level editor
@@ -20,8 +22,8 @@
 - But I also added some better features that suits fast level design
 
 ## Installing
-- Download repo and unzip
-- Blender -> Edit -> Preferences -> Addons -> Install -> Select LevelBuddy.py
+- Download repo
+- Blender -> Edit -> Preferences -> Addons -> Install -> Select downloaded *zip* archive
 - Enable the addon
 - Make sure you delete/remove old versions
 
