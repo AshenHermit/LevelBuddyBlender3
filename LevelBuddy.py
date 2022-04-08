@@ -16,24 +16,13 @@
 #  ***** END GPL LICENSE BLOCK *****
 
 
+from functools import partial
 import os
+import traceback
 import bpy
 import bmesh
 import addon_utils
 from bpy_extras.io_utils import ImportHelper
-
-bl_info = {
-    "name": "Level Buddy",
-    "author": "Matt Lucas, HickVieira (Blender 3.0 version)",
-    "version": (1, 5),
-    "blender": (3, 0, 0),
-    "location": "View3D > Tools > Level Buddy",
-    "description": "A set of workflow tools based on concepts from Doom and Unreal level mapping.",
-    "warning": "WIP",
-    "wiki_url": "https://github.com/hickVieira/LevelBuddyBlender3",
-    "category": "Object",
-}
-
 
 def auto_texture(bool_obj, source_obj):
     mesh = bool_obj.data
@@ -247,6 +236,20 @@ def copy_transforms(a, b):
     a.scale = b.scale
     a.rotation_euler = b.rotation_euler
 
+def share_var_with_objects(actobj=None, selected=None, var_key=None):
+    if actobj is None or selected is None or var_key is None: return
+    if not hasattr(actobj, var_key): return
+    for obj in selected:
+        if obj is not actobj and hasattr(obj, var_key):
+            setattr(obj, var_key, getattr(actobj, var_key))
+
+def _share_var_update(context, var_key=None):
+    try:
+        actobj = context.active_object
+        selected = context.selected_objects
+        share_var_with_objects(actobj=actobj, selected=selected, var_key=var_key)
+    except:
+        traceback.print_exc()
 
 bpy.types.Scene.map_precision = bpy.props.IntProperty(
     name="Map Precision",
@@ -300,15 +303,28 @@ bpy.types.Object.floor_height = bpy.props.FloatProperty(
     precision=3,
     update=_update_sector_solidify
 )
+
+def _share_floor_texture_update(self, context):
+    _share_var_update(context, "floor_texture")
 bpy.types.Object.floor_texture = bpy.props.StringProperty(
     name="Floor Texture",
+    update=_share_floor_texture_update
 )
+
+def _share_wall_texture_update(self, context):
+    _share_var_update(context, "wall_texture")
 bpy.types.Object.wall_texture = bpy.props.StringProperty(
     name="Wall Texture",
+    update=_share_wall_texture_update
 )
+
+def _share_ceiling_texture_update(self, context):
+    _share_var_update(context, "ceiling_texture")
 bpy.types.Object.ceiling_texture = bpy.props.StringProperty(
     name="Ceiling Texture",
+    update=_share_ceiling_texture_update
 )
+
 bpy.types.Object.brush_type = bpy.props.EnumProperty(
     items=[
         ("BRUSH", "Brush", "is a brush"),
@@ -374,6 +390,7 @@ class LevelBuddyPanel(bpy.types.Panel):
             col.operator("scene.level_buddy_new_geometry", text="New Sector", icon="MESH_PLANE").brush_type = 'SECTOR'
             col.operator("scene.level_buddy_new_geometry", text="New Brush", icon="CUBE").brush_type = 'BRUSH'
         if ob is not None and len(bpy.context.selected_objects) > 0:
+            selected_objects = bpy.context.selected_objects
             col = layout.column(align=True)
             col.label(icon="MOD_ARRAY", text="Brush Properties")
             col.prop(ob, "brush_type", text="Brush Type")
@@ -396,9 +413,11 @@ class LevelBuddyPanel(bpy.types.Panel):
                 col.prop(ob, "floor_height")
                 # layout.separator()
                 col = layout.column(align=True)
+
                 col.prop_search(ob, "ceiling_texture", bpy.data, "materials", icon="MATERIAL", text="Ceiling")
                 col.prop_search(ob, "wall_texture", bpy.data, "materials", icon="MATERIAL", text="Wall")
                 col.prop_search(ob, "floor_texture", bpy.data, "materials", icon="MATERIAL", text="Floor")
+                col.operator("scene.level_buddy_share_materials_with_selected")
 
 
 class LevelBuddyNewGeometry(bpy.types.Operator):
@@ -419,7 +438,7 @@ class LevelBuddyNewGeometry(bpy.types.Operator):
         ob = bpy.context.active_object
 
         if self.brush_type == 'SECTOR':
-            ob.csg_operation = 'SUBTRACT'
+            ob.csg_operation = 'ADD'
         else:
             ob.csg_operation = 'ADD'
 
@@ -564,8 +583,9 @@ class LevelBuddyBuildMap(bpy.types.Operator):
         brush_dictionary_list = {}
         brush_orders_sorted_list = []
 
-        level_map = create_new_boolean_object(scn, "LevelGeometry")
-        level_map.data = bpy.data.meshes.new("LevelGeometryMesh")
+        map_geometry_name = "LevelGeometry"
+        level_map = create_new_boolean_object(scn, map_geometry_name)
+        level_map.data = bpy.data.meshes.new(map_geometry_name+"Mesh")
         level_map.hide_select = True
         level_map.hide_set(False)
 
@@ -627,6 +647,11 @@ class LevelBuddyBuildMap(bpy.types.Operator):
         #     if m.users == 0:
         #         bpy.data.materials.remove(m)
 
+        # apply generated data to other objects with related to map geometry
+        for obj in list(bpy.context.scene.objects):
+            if obj.name.split(".")[0] == map_geometry_name:
+                obj.data = level_map.data
+
         return {"FINISHED"}
 
 
@@ -682,22 +707,15 @@ class LevelBuddyOpenMaterial(bpy.types.Operator, ImportHelper):
 
         return {"FINISHED"}
 
+class LevelBuddyShareMatWithSelected(bpy.types.Operator):
+    """ Shares ceiling, floor, wall materials of active object to all selected objects """
+    bl_idname = "scene.level_buddy_share_materials_with_selected"
+    bl_label = "Share Materials With Selected"
 
-def register():
-    bpy.utils.register_class(LevelBuddyPanel)
-    bpy.utils.register_class(LevelBuddyBuildMap)
-    bpy.utils.register_class(LevelBuddyNewGeometry)
-    bpy.utils.register_class(LevelBuddyRipGeometry)
-    bpy.utils.register_class(LevelBuddyOpenMaterial)
-
-
-def unregister():
-    bpy.utils.unregister_class(LevelBuddyPanel)
-    bpy.utils.unregister_class(LevelBuddyBuildMap)
-    bpy.utils.unregister_class(LevelBuddyNewGeometry)
-    bpy.utils.unregister_class(LevelBuddyRipGeometry)
-    bpy.utils.unregister_class(LevelBuddyOpenMaterial)
-
-
-if __name__ == "__main__":
-    register()
+    def execute(self, context):
+        active_obj = context.active_object
+        selected = context.selected_objects
+        for key in ["ceiling_texture", "floor_texture", "wall_texture"]:
+            share_var_with_objects(active_obj, selected, key)
+            
+        return {"FINISHED"}
