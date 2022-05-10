@@ -254,6 +254,11 @@ bpy.types.Scene.map_precision = bpy.props.IntProperty(
     max=6,
     description='Controls the rounding level of vertex precisions. Lower numbers round to higher values.  A level of "1" would round 1.234 to 1.2 and a level of "2" would round to 1.23'
 )
+bpy.types.Scene.flip_normals = bpy.props.BoolProperty(
+    name="Flip Normals",
+    default=True,
+    description='Flip output normals'
+)
 
 def add_level_buddy_default_props():
     bpy.types.Object.texture_tillings = bpy.props.FloatVectorProperty(
@@ -338,11 +343,6 @@ def add_level_buddy_default_props():
         name="Brush Auto Texture",
         default=True,
         description='Auto Texture on or off'
-    )
-    bpy.types.Scene.flip_normals = bpy.props.BoolProperty(
-        name="Flip Normals",
-        default=True,
-        description='Flip output normals'
     )
 
 shared_props.add_levelbuddy_sharing_props(

@@ -181,9 +181,3 @@ def add_levelbuddy_sharing_props(_update_sector_solidify):
         default=True,
         description='Auto Texture on or off'
     )
-    add_sharing_property(
-        bpy.types.Object, "flip_normals", False,
-        bpy.props.BoolProperty, None,
-        default=True,
-        description='Flip output normals'
-    )
