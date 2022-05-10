@@ -1,6 +1,6 @@
 # Level Buddy for Blender 3.0
 
-I added the ability to change materials to all selected sectors.  
+Lol, i just added the ability to change properties to all selected objects, but then realized that this can be done just by pressing the *alt* key. But i left it as is, it turned out a little more convenient, especially when changing the height of the floor and ceiling.
 And a mesh update for all copies of the generated map object.
 
 **Level Buddy** is a Blender 2.7 add-on originally written by Matt Lucas. [old version available on itch.io](https://matt-lucas.itch.io/level-buddy).  

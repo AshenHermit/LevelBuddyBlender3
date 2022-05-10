@@ -15,14 +15,26 @@
 #
 #  ***** END GPL LICENSE BLOCK *****
 
-
+import argparse
 from functools import partial
 import os
+import sys
 import traceback
+import importlib
 import bpy
 import bmesh
 import addon_utils
 from bpy_extras.io_utils import ImportHelper
+
+#
+for filename in [ f for f in os.listdir(os.path.dirname(os.path.realpath(__file__))) if f.endswith(".py") ]:
+	if filename == os.path.basename(__file__): continue
+	module = sys.modules.get("{}.{}".format(__name__,filename[:-3]))
+	if module: importlib.reload(module)
+#
+
+from . import shared_props
+importlib.reload(shared_props)
 
 def auto_texture(bool_obj, source_obj):
     mesh = bool_obj.data
@@ -230,140 +242,117 @@ def copy_materials(target, source):
             if sourceMaterial.name not in target.data.materials:
                 target.data.materials.append(sourceMaterial)
 
-
 def copy_transforms(a, b):
     a.location = b.location
     a.scale = b.scale
     a.rotation_euler = b.rotation_euler
-
-def share_var_with_objects(actobj=None, selected=None, var_key=None):
-    if actobj is None or selected is None or var_key is None: return
-    if not hasattr(actobj, var_key): return
-    for obj in selected:
-        if obj is not actobj and hasattr(obj, var_key):
-            setattr(obj, var_key, getattr(actobj, var_key))
-
-def _share_var_update(context, var_key=None):
-    try:
-        actobj = context.active_object
-        selected = context.selected_objects
-        share_var_with_objects(actobj=actobj, selected=selected, var_key=var_key)
-    except:
-        traceback.print_exc()
 
 bpy.types.Scene.map_precision = bpy.props.IntProperty(
     name="Map Precision",
     default=3,
     min=0,
     max=6,
-    description='Controls the rounding level of vertex precisions.  Lower numbers round to higher values.  A level of "1" would round 1.234 to 1.2 and a level of "2" would round to 1.23'
-)
-bpy.types.Object.texture_tillings = bpy.props.FloatVectorProperty(
-    name="Texture Tillings",
-    default=(1, 1, 1),
-    min=0,
-    step=10,
-    precision=3,
-)
-bpy.types.Object.ceiling_texture_offset = bpy.props.FloatVectorProperty(
-    name="Ceiling Texture Offset",
-    default=(0, 0),
-    min=0,
-    step=10,
-    precision=3,
-    size=2
-)
-bpy.types.Object.wall_texture_offset = bpy.props.FloatVectorProperty(
-    name="Wall Texture Offset",
-    default=(0, 0),
-    min=0,
-    step=10,
-    precision=3,
-    size=2
-)
-bpy.types.Object.floor_texture_offset = bpy.props.FloatVectorProperty(
-    name="Floor Texture Offset",
-    default=(0, 0),
-    min=0,
-    step=10,
-    precision=3,
-    size=2
-)
-bpy.types.Object.ceiling_height = bpy.props.FloatProperty(
-    name="Ceiling Height",
-    default=4,
-    step=10,
-    precision=3,
-    update=_update_sector_solidify
-)
-bpy.types.Object.floor_height = bpy.props.FloatProperty(
-    name="Floor Height",
-    default=0,
-    step=10,
-    precision=3,
-    update=_update_sector_solidify
+    description='Controls the rounding level of vertex precisions. Lower numbers round to higher values.  A level of "1" would round 1.234 to 1.2 and a level of "2" would round to 1.23'
 )
 
-def _share_floor_texture_update(self, context):
-    _share_var_update(context, "floor_texture")
-bpy.types.Object.floor_texture = bpy.props.StringProperty(
-    name="Floor Texture",
-    update=_share_floor_texture_update
+def add_level_buddy_default_props():
+    bpy.types.Object.texture_tillings = bpy.props.FloatVectorProperty(
+        name="Texture Tillings",
+        default=(1, 1, 1),
+        min=0,
+        step=10,
+        precision=3,
+    )
+    bpy.types.Object.ceiling_texture_offset = bpy.props.FloatVectorProperty(
+        name="Ceiling Texture Offset",
+        default=(0, 0),
+        min=0,
+        step=10,
+        precision=3,
+        size=2
+    )
+    bpy.types.Object.wall_texture_offset = bpy.props.FloatVectorProperty(
+        name="Wall Texture Offset",
+        default=(0, 0),
+        min=0,
+        step=10,
+        precision=3,
+        size=2
+    )
+    bpy.types.Object.floor_texture_offset = bpy.props.FloatVectorProperty(
+        name="Floor Texture Offset",
+        default=(0, 0),
+        min=0,
+        step=10,
+        precision=3,
+        size=2
+    )
+    bpy.types.Object.ceiling_height = bpy.props.FloatProperty(
+        name="Ceiling Height",
+        default=4,
+        step=10,
+        precision=3,
+        update=_update_sector_solidify
+    )
+    bpy.types.Object.floor_height = bpy.props.FloatProperty(
+        name="Floor Height",
+        default=0,
+        step=10,
+        precision=3,
+        update=_update_sector_solidify
+    )
+    bpy.types.Object.floor_texture = bpy.props.StringProperty(
+        name="Floor Texture",
+    )
+    bpy.types.Object.wall_texture = bpy.props.StringProperty(
+        name="Wall Texture",
+    )
+    bpy.types.Object.ceiling_texture = bpy.props.StringProperty(
+        name="Ceiling Texture",
+    )
+    bpy.types.Object.brush_type = bpy.props.EnumProperty(
+        items=[
+            ("BRUSH", "Brush", "is a brush"),
+            ("SECTOR", "Sector", "is a sector"),
+            ("NONE", "None", "none"),
+        ],
+        name="Brush Type",
+        description="the brush type",
+        default='NONE'
+    )
+    bpy.types.Object.csg_operation = bpy.props.EnumProperty(
+        items=[
+            ("ADD", "Add", "add/union geometry to output"),
+            ("SUBTRACT", "Subtract", "subtract/remove geometry from output"),
+        ],
+        name="CSG Operation",
+        description="the CSG operation",
+        default='ADD'
+    )
+    bpy.types.Object.csg_order = bpy.props.IntProperty(
+        name="CSG Order",
+        default=0,
+        description='Controls the order of CSG operation of the object'
+    )
+    bpy.types.Object.brush_auto_texture = bpy.props.BoolProperty(
+        name="Brush Auto Texture",
+        default=True,
+        description='Auto Texture on or off'
+    )
+    bpy.types.Scene.flip_normals = bpy.props.BoolProperty(
+        name="Flip Normals",
+        default=True,
+        description='Flip output normals'
+    )
+
+shared_props.add_levelbuddy_sharing_props(
+    _update_sector_solidify=_update_sector_solidify
 )
 
-def _share_wall_texture_update(self, context):
-    _share_var_update(context, "wall_texture")
-bpy.types.Object.wall_texture = bpy.props.StringProperty(
-    name="Wall Texture",
-    update=_share_wall_texture_update
-)
-
-def _share_ceiling_texture_update(self, context):
-    _share_var_update(context, "ceiling_texture")
-bpy.types.Object.ceiling_texture = bpy.props.StringProperty(
-    name="Ceiling Texture",
-    update=_share_ceiling_texture_update
-)
-
-bpy.types.Object.brush_type = bpy.props.EnumProperty(
-    items=[
-        ("BRUSH", "Brush", "is a brush"),
-        ("SECTOR", "Sector", "is a sector"),
-        ("NONE", "None", "none"),
-    ],
-    name="Brush Type",
-    description="the brush type",
-    default='NONE'
-)
-bpy.types.Object.csg_operation = bpy.props.EnumProperty(
-    items=[
-        ("ADD", "Add", "add/union geometry to output"),
-        ("SUBTRACT", "Subtract", "subtract/remove geometry from output"),
-    ],
-    name="CSG Operation",
-    description="the CSG operation",
-    default='ADD'
-)
 csg_operation_to_blender_boolean = {
     "ADD": "UNION",
     "SUBTRACT": "DIFFERENCE"
 }
-bpy.types.Object.csg_order = bpy.props.IntProperty(
-    name="CSG Order",
-    default=0,
-    description='Controls the order of CSG operation of the object'
-)
-bpy.types.Object.brush_auto_texture = bpy.props.BoolProperty(
-    name="Brush Auto Texture",
-    default=True,
-    description='Auto Texture on or off'
-)
-bpy.types.Scene.flip_normals = bpy.props.BoolProperty(
-    name="Flip Normals",
-    default=True,
-    description='Flip output normals'
-)
-
 
 class LevelBuddyPanel(bpy.types.Panel):
     bl_label = "Level Buddy"
