@@ -7,6 +7,13 @@ import bmesh
 import addon_utils
 from bpy_extras.io_utils import ImportHelper
 
+def mimic_ctx(ctx_dict):
+    d = dict(ctx_dict)
+    ctx_dict['copy'] = lambda: d
+    ctx = argparse.Namespace(**ctx_dict)
+    return ctx
+
+
 recursion_locked = False
 def anti_recursive_set(obj, key, value, add=False):
     global recursion_locked
@@ -68,8 +75,7 @@ def add_sharing_property(bpy_type, key, relative=False, prop_type=None, add_func
             for obj in selected:
                 ctx = context.copy()
                 ctx['active_object'] = obj
-                ctx['copy'] = lambda x: ctx
-                ctx = argparse.Namespace(**ctx)
+                ctx = mimic_ctx(ctx)
                 add_func(self, ctx)
     
     name = key.replace("_", " ").title()
